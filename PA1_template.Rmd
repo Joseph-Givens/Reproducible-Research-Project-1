@@ -1,0 +1,135 @@
+---
+title: "PA1_template"
+author: "Joseph Givens"
+date: "5/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The data for this assignment contains the following variables:
+- steps: Number of steps taken in five-minute intervals(missing values are NA)
+- date: The date on which the measurement was taken in YYYY-MM-DD format
+- interval: Identifier for the 5-minute interval in which measurement was taken
+
+## Loading and preprocessing the data
+```{r}
+stepData <- read.csv("activity.csv")
+```
+
+## What is mean total number of steps taken?
+
+Total number of steps taken per day
+```{r}
+totalSteps <- aggregate(steps ~ date, stepData, FUN = sum, na.rm = TRUE)
+```
+
+Histogram of the total number of steps taken each day
+```{r}
+hist(totalSteps$steps,
+     xlab = "Number of Steps",
+     ylab = "Days",
+     main = "Total Steps per Day")
+```
+
+Mean number of steps taken each day
+```{r}
+meanSteps <- mean(totalSteps$steps)
+meanSteps
+```
+
+Median number of steps taken each day
+```{r}
+medianSteps <- median(totalSteps$steps)
+medianSteps
+```
+
+## What is the average daily activity pattern?
+
+Time series plot of the 5-minute interval and the average number of steps taken
+```{r}
+library(ggplot2)
+avgSteps <- aggregate(steps ~ interval, stepData, mean, na.rm = TRUE)
+g <- ggplot(data = avgSteps, aes(x = interval, y = steps))
+g + geom_line() +
+    xlab("Intervals") +
+    ylab("Average Number of Steps")
+```
+
+Five-minute interval with maximum number of steps
+```{r}
+avgSteps[which.max(avgSteps$steps), ]
+```
+
+## Imputing Missing Values
+
+Calculate and report the total number of missing values in the dataset
+```{r}
+missingValues <- sum(is.na(stepData$steps))
+missingValues
+```
+
+Fill in all of the missing values in the dataset
+```{r}
+impStepData <- transform(stepData,
+                         steps = ifelse(is.na(stepData$steps),
+                                        avgSteps$steps[match(stepData$interval,
+                                                             avgSteps$interval)],
+                                        stepData$steps))
+```
+
+Histogram of the total number of steps taken each day
+```{r}
+impTotalSteps <- aggregate(steps ~ date, impStepData, FUN = sum, na.rm = TRUE)
+hist(impTotalSteps$steps,
+     xlab = "Number of Steps",
+     ylab = "Days",
+     main = "Imputed Total Steps per Day")
+```
+
+Calculate and report the mean and median total number of steps taken per day
+```{r}
+impMeanSteps <- mean(impTotalSteps$steps, na.rm = TRUE)
+impMeanSteps
+impMedianSteps <- median(impTotalSteps$steps, na.rm = TRUE)
+impMedianSteps
+```
+
+Impact if imputing missing data on the estimates of the total daily number of steps
+```{r}
+diffMean = impMeanSteps - meanSteps
+diffMean
+diffMedian = impMedianSteps - medianSteps
+diffMedian
+diffTotal = sum(impTotalSteps$steps) - sum(totalSteps$steps)
+diffTotal
+```
+
+## Differences in activity patterns between weekdays and weekends
+
+New factor variable indicating weekday or weekend
+
+```{r}
+weekPart <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'))
+        return ("Weekday")
+    else if (day %in% c('Saturday', 'Sunday'))
+        return ("Weekend")
+}
+impStepData$date <- as.Date(impStepData$date)
+impStepData$day <- sapply(impStepData$date, FUN = weekPart)
+```
+
+Panel plot of average number of steps, averaged across all weekdays and weekends
+```{r}
+meanWeekPart <- aggregate(steps ~ interval + day, impStepData, mean)
+g <- ggplot(data = meanWeekPart, aes(x = interval, y = steps))
+g + geom_line() +
+    facet_grid(rows = vars(day)) +
+    ggtitle("Average Daily Steps") +
+    xlab("Five-Minute Intervals") +
+    ylab("Average Number of Steps")
+```
